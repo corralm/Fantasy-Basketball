@@ -1,5 +1,4 @@
 from time import perf_counter
-import traceback
 
 import pandas as pd
 from gazpacho import Soup
@@ -51,17 +50,17 @@ def clean_player_column(df):
     return df
 
 
-def add_date_fetched(df):
-    """Add 'date_fetched' column to DataFrame."""
-    timestamp = f"{pd.Timestamp('today'):%Y-%m-%d %I-%M %p}"
-    df['time_fetched'] = timestamp
+def add_pct_column(df):
+    """Adds 'pct_of_total_adds' column to DataFrame."""
+    adds_pct_tot = round(df['adds'] / df['total'].sum(), 3) * 100
+    df.insert(4, 'pct_of_total_adds', adds_pct_tot)
     return df
 
 
-def add_stats_column(df):
-    """Add 'pct_of_total_adds' column to DataFrame."""
-    adds_pct_tot = round(df['adds'] / df['total'].sum(), 3) * 100
-    df.insert(4, 'pct_of_total_adds', adds_pct_tot)
+def add_timestamp_column(df):
+    """Add 'time_fetched' column to DataFrame."""
+    timestamp = pd.Timestamp('today')
+    df['time_fetched'] = timestamp
     return df
 
 
@@ -74,55 +73,62 @@ def create_sql_engine():
     return engine
 
 
+def has_table(engine):
+    """Return True if the given backend has a table of the given name."""
+    return engine.has_table('yahoo_buzz')
+
+
 def create_df_from_last_dump(engine):
     """Constructs a DataFrame from the last data dump."""
-    df = pd.read_sql(con=engine, sql="""
+    get_last_dump = """
         SELECT *
-        FROM fantasy
+        FROM yahoo_buzz
         WHERE time_fetched = (
             SELECT MAX(time_fetched)
-            FROM fantasy
+            FROM yahoo_buzz
             )
         """
-                     )
+    df = pd.read_sql(con=engine, sql=get_last_dump)
     return df
 
 
 def compare_dfs(current_df, last_df):
-    """Compares current & last DataFrames to prevent duplication.
-    Returns bool"""
+    """Returns True if 'current_df' is identical to 'last_df'."""
     current_df = current_df.reset_index(drop=True)
     # compare 'adds' column
     return current_df['adds'].equals(last_df['adds'])
 
 
-def dump_to_mysql(current_df, last_df, engine):
+def dump_to_mysql(current_df, engine):
     """Adds rows (appends if data exists) to 'fantasy' table in MySQL."""
-    # add data only if it hasn't been added already
-    if not compare_dfs(current_df, last_df):
-        current_df.to_sql(name='fantasy', con=engine, if_exists='append',
-                          index_label='buzz_index', dtype={'pct_of_total_adds': Float()})
+    current_df.to_sql(name='yahoo_buzz', con=engine,
+                      if_exists='append', index_label='buzz_index',
+                      dtype={'pct_of_total_adds': Float()})
 
 
 def main():
     """Run script."""
-    print("Fetching trends data from Yahoo")
     tic = perf_counter()
-    try:
-        current_df = create_df()
-        add_team_position_column(current_df)
-        clean_player_column(current_df)
-        add_date_fetched(current_df)
-        add_stats_column(current_df)
-        engine = create_sql_engine()
+
+    current_df = create_df()
+    add_team_position_column(current_df)
+    clean_player_column(current_df)
+    add_pct_column(current_df)
+    add_timestamp_column(current_df)
+    engine = create_sql_engine()
+    if has_table(engine):
+        # add data only if it hasn't been added already
         last_df = create_df_from_last_dump(engine)
-        compare_dfs(current_df, last_df)
-        dump_to_mysql(current_df, last_df, engine)
-    except:
-        traceback.print_exc()
+        if not compare_dfs(current_df, last_df):
+            dump_to_mysql(current_df, engine)
+    else:
+        # create database and dump if 'yahoo_buzz' doesn't exist
+        dump_to_mysql(current_df, engine)
+
     toc = perf_counter()
     duration = (toc - tic)
-    print(f"Finished in {duration:0.3f} seconds")
+    print(f"{pd.Timestamp('today'):%Y-%m-%d %I-%M %p} \
+        Finished in {duration:0.3f} seconds ")
 
 
 if __name__ == '__main__':

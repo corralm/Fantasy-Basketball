@@ -23,4 +23,6 @@ rank_tbl AS (
 SELECT *
 FROM rank_tbl
 WHERE daily_rank <= 10
-ORDER BY date DESC
+ORDER BY
+    date DESC,
+    max_adds DESC

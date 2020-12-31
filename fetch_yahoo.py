@@ -100,7 +100,7 @@ def compare_dfs(current_df, last_df):
 
 
 def dump_to_mysql(current_df, engine):
-    """Adds rows (appends if data exists) to 'fantasy' table in MySQL."""
+    """Adds rows (appends if data exists) to a table in MySQL."""
     current_df.to_sql(name='yahoo_buzz', con=engine,
                       if_exists='append', index_label='buzz_index',
                       dtype={'pct_of_total_adds': Float()})

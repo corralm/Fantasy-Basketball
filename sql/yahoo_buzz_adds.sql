@@ -3,6 +3,7 @@ WITH previous AS (
 		player,
 		time_fetched,
 		adds,
+	    buzz_index,
 		LAG(adds) OVER (
 			PARTITION BY player
 			ORDER BY time_fetched) AS prev_adds,
@@ -14,6 +15,7 @@ WITH previous AS (
 diff AS (
 	SELECT
 		player,
+	    buzz_index,
 		adds,
 		prev_adds,
 		adds - prev_adds AS adds_since_last_fetch,
@@ -26,6 +28,7 @@ diff AS (
 )
 SELECT
 	player,
+    buzz_index,
 	adds,
 	prev_adds,
 	adds_since_last_fetch,

@@ -131,3 +131,4 @@ dmypy.json
 # Personal Usernames & Passwords
 /credentials.py
 /oauth2_creds.json
+.idea

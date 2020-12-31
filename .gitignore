@@ -129,4 +129,5 @@ dmypy.json
 .pyre/
 
 # Personal Usernames & Passwords
-credentials.py
+/credentials.py
+/oauth2_creds.json

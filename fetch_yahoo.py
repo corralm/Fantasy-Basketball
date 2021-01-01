@@ -1,12 +1,15 @@
 from time import perf_counter
 
 import pandas as pd
+import yagmail
 from gazpacho import Soup
 from gazpacho import get
-from sqlalchemy import create_engine
 from sqlalchemy.types import Float
 
 import credentials
+import sql_engine
+
+ENGINE = sql_engine.engine
 
 
 def make_soup():
@@ -64,21 +67,12 @@ def add_timestamp_column(df):
     return df
 
 
-def create_sql_engine():
-    """Connects to 'fantasy' database in MySQL."""
-    usr = credentials.mysql_usr
-    pwd = credentials.mysql_pwd
-    con = f'mysql+pymysql://{usr}:{pwd}@localhost:3306/fantasy'
-    engine = create_engine(con)
-    return engine
-
-
-def has_table(engine):
+def has_table(table):
     """Return True if the given backend has a table of the given name."""
-    return engine.has_table('yahoo_buzz')
+    return ENGINE.has_table(table)
 
 
-def create_df_from_last_dump(engine):
+def create_df_from_last_dump():
     """Constructs a DataFrame from the last data dump."""
     get_last_dump = """
         SELECT *
@@ -86,10 +80,10 @@ def create_df_from_last_dump(engine):
         WHERE time_fetched = (
             SELECT MAX(time_fetched)
             FROM yahoo_buzz
-            )
+            );
         """
-    df = pd.read_sql(con=engine, sql=get_last_dump)
-    return df
+    last_df = pd.read_sql(con=ENGINE, sql=get_last_dump)
+    return last_df
 
 
 def compare_dfs(current_df, last_df):
@@ -99,31 +93,77 @@ def compare_dfs(current_df, last_df):
     return current_df['adds'].equals(last_df['adds'])
 
 
-def dump_to_mysql(current_df, engine):
-    """Adds rows (appends if data exists) to 'fantasy' table in MySQL."""
-    current_df.to_sql(name='yahoo_buzz', con=engine,
+def dump_current_df_to_mysql(current_df):
+    """Adds rows (appends if data exists) to a table in MySQL."""
+    current_df.to_sql(name='yahoo_buzz', con=ENGINE,
                       if_exists='append', index_label='buzz_index',
                       dtype={'pct_of_total_adds': Float()})
+
+
+def create_todays_buzz_df():
+    """Returns DataFrame with today's buzz.
+    Buzz is defined as a player in the top 10 daily adds
+    that has reached >= 25 adds per minute.
+    """
+    buzz_sql = """
+        SELECT *
+        FROM yahoo_buzz_today
+        WHERE player NOT IN (
+            SELECT player
+            FROM yahoo_buzz_email_sent
+            WHERE DATE(time_fetched) = CURDATE()
+            );
+    """
+    buzz_df = pd.read_sql(buzz_sql, con=ENGINE)
+    return buzz_df
+
+
+def send_email(buzz_df):
+    """Sends an email with the latest trending player(s)."""
+    recipient = credentials.recipient
+    sender = credentials.sender
+    subject = 'Yahoo Buzz Alert'
+    body = buzz_df.to_dict(orient='index')
+    yag = yagmail.SMTP(sender, oauth2_file="./oauth2_creds.json")
+    yag.send(
+        to=recipient,
+        subject=subject,
+        contents=body
+    )
+
+
+def dump_buzz_player_to_mysql(buzz_df):
+    """Adds rows to MySQL for emails sent."""
+    buzz_df = add_timestamp_column(buzz_df)
+    buzz_df.to_sql(name='yahoo_buzz_email_sent', con=ENGINE, if_exists='append')
 
 
 def main():
     """Run script."""
     tic = perf_counter()
 
+    # fetch buzz data, create DataFrame, and clean it
     current_df = create_df()
     add_team_position_column(current_df)
     clean_player_column(current_df)
     add_pct_column(current_df)
     add_timestamp_column(current_df)
-    engine = create_sql_engine()
-    if has_table(engine):
+
+    # dump DataFrame to MySQL
+    if has_table('yahoo_buzz'):
         # add data only if it hasn't been added already
-        last_df = create_df_from_last_dump(engine)
+        last_df = create_df_from_last_dump()
         if not compare_dfs(current_df, last_df):
-            dump_to_mysql(current_df, engine)
+            dump_current_df_to_mysql(current_df)
     else:
-        # create database and dump if 'yahoo_buzz' doesn't exist
-        dump_to_mysql(current_df, engine)
+        # create table and dump if 'yahoo_buzz' doesn't exist
+        dump_current_df_to_mysql(current_df)
+
+    # send an email if a player is buzzing
+    buzz_df = create_todays_buzz_df()
+    if not buzz_df.empty:
+        send_email(buzz_df)
+        dump_buzz_player_to_mysql(buzz_df)
 
     toc = perf_counter()
     duration = (toc - tic)

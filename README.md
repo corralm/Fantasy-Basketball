@@ -1,5 +1,5 @@
 # Fantasy Basketball Scripts
-This repo contains scripts to fetch Fantasy Basketball data from Yahoo and ESPN. 
+This repo contains Python scripts to fetch Fantasy Basketball data from Yahoo and ESPN. 
 
 An email alert is sent for these cases:
 1. When a player is buzzing on [Yahoo Transaction Trends](https://basketball.fantasysports.yahoo.com/nba/buzzindex).
@@ -10,12 +10,14 @@ The scripts are scheduled using [Hickory](https://github.com/maxhumber/hickory).
 ## Tools & Libraries
 - MySQL 8
 - Firefox browser & [geckodriver](https://selenium-python.readthedocs.io/installation.html#drivers)
-- `gazpacho=1.1`
-- `hickory=1.0`
-- `pandas=1.1.3`
-- `selenium=3.141.0`
-- `yagmail=0.14.245`
-- `sqlalchemy=1.3`
+
+Python libraries
+- gazpacho=1.1
+- hickory=1.0
+- pandas=1.1.3
+- selenium=3.141.0
+- sqlalchemy=1.3
+- yagmail=0.14.245
 
 ## Meta
 Author: Miguel Corral Jr.  

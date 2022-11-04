@@ -1,4 +1,4 @@
-# Fantasy Basketball Scripts
+# Fantasy Basketball Scraper
 This repo contains Python scripts to fetch Fantasy Basketball data from Yahoo and ESPN. 
 
 An email alert is sent for these cases:

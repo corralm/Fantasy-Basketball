@@ -22,7 +22,7 @@ Python libraries
 ## Meta
 Author: Miguel Corral Jr.  
 Email: corraljrmiguel@gmail.com  
-LinkedIn: https://www.linkedin.com/in/miguelcorraljr/  
+LinkedIn: https://www.linkedin.com/in/iMiguel/  
 GitHub: https://github.com/corralm
 
 Distributed under the MIT License. See [LICENSE](./LICENSE) for more information.
